@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Code128 Barcode – Konverter (mit Längenhinweis) + QR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.js" defer></script>
+  <style>
+    :root { --gap: 1rem; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
+           line-height: 1.5; margin: 0; padding: var(--gap); background:#fafafa; color:#111; }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    h1 { font-size: clamp(1.2rem, 1.1rem + 1.5vw, 1.9rem); margin: .25rem 0 1rem; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: var(--gap); }
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: 1fr 360px; align-items: start; }
+    }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius: 12px; padding: var(--gap); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    label { font-weight: 600; display:block; margin-bottom: .25rem; }
+    input[type="text"], select, input[type="number"] { width: 100%; padding: .55rem .7rem; border:1px solid #d1d5db; border-radius: 10px; font-size: 1rem; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; }
+    .row-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:.75rem; }
+    .hint { color:#6b7280; font-size:.92rem; }
+    .muted { color:#6b7280; }
+    .actions { display:flex; gap:.5rem; flex-wrap: wrap; margin-top:.5rem; }
+    button { padding: .6rem .9rem; border:1px solid #d1d5db; border-radius: 10px; background:#111; color:#fff; cursor:pointer; }
+    button.secondary { background:#fff; color:#111; }
+    #stage, #qrStage { overflow:auto; padding: .5rem; background:white; border:1px dashed #e5e7eb; border-radius:10px; }
+    #barcode { display:block; margin: 0 auto; cursor: pointer; background:white; }
+    #qrcodeWrap { display:flex; justify-content:center; align-items:center; min-height: 260px; cursor: pointer; }
+    .warn { color:#b45309; background:#fff7ed; border:1px solid #fde68a; padding:.5rem .75rem; border-radius:10px; }
+    .ok { color:#065f46; background:#ecfdf5; border:1px solid #a7f3d0; padding:.5rem .75rem; border-radius:10px; }
+    code { background:#f3f4f6; padding:.1rem .35rem; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Code128 Barcode &amp; QR-Code – Konverter</h1>
+
+    <div class="grid">
+      <div>
+        <!-- BARCODE CARD -->
+        <div class="card">
+          <h2 style="margin-top:0;">Barcode (CODE128)</h2>
+          <label for="payload">Text / Daten</label>
+          <input id="payload" type="text" placeholder="z. B. 0,23468 g">
+
+          <div class="row" style="margin-top:.75rem;">
+            <div>
+              <label for="format">Format</label>
+              <select id="format">
+                <option value="CODE128" selected>CODE128 (allgemein)</option>
+                <option value="CODE128C">CODE128C (nur Ziffern, paarweise)</option>
+              </select>
+              <div class="hint">CODE128C verdichtet längere <b>numerische</b> Texte (geringere Länge bei gleichem Platz).</div>
+            </div>
+            <div>
+              <label for="displayValue">Klartext unterhalb</label>
+              <select id="displayValue">
+                <option value="true" selected>anzeigen</option>
+                <option value="false">ausblenden</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row-3" style="margin-top:.75rem;">
+            <div>
+              <label for="barWidth">Balkenbreite (px)</label>
+              <input id="barWidth" type="number" min="0.2" step="0.1" value="2.0">
+              <div class="hint">Entspricht der <i>Modulbreite</i> (schmalster Balken).</div>
+            </div>
+            <div>
+              <label for="barHeight">Höhe (px)</label>
+              <input id="barHeight" type="number" min="20" step="1" value="160">
+            </div>
+            <div>
+              <label for="margin">Rand (px)</label>
+              <input id="margin" type="number" min="0" step="1" value="12">
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="btn-generate">Erzeugen</button>
+            <button id="btn-svg" class="secondary">Als SVG speichern</button>
+            <button id="btn-png" class="secondary">Als PNG speichern</button>
+          </div>
+
+          <div id="stage" style="margin-top:.75rem;">
+            <svg id="barcode" role="img" aria-label="Barcode"></svg>
+          </div>
+
+          <div id="status" style="margin-top:.75rem;"></div>
+          <div class="hint">Tipp: Auf den Barcode klicken ⇒ <b>SVG</b> speichern. Mit gedrückter <b>Alt</b>-Taste ⇒ <b>PNG</b>.</div>
+        </div>
+
+        <!-- QR CODE CARD -->
+        <div class="card" style="margin-top: var(--gap);">
+          <h2 style="margin-top:0;">QR-Code</h2>
+          <div class="row" style="margin-top:.25rem;">
+            <div>
+              <label for="qrEC">Fehlerkorrektur</label>
+              <select id="qrEC">
+                <option value="L">L (niedrig)</option>
+                <option value="M" selected>M (mittel)</option>
+                <option value="Q">Q (hoch)</option>
+                <option value="H">H (sehr hoch)</option>
+              </select>
+            </div>
+            <div>
+              <label for="qrSize">Größe (px)</label>
+              <input id="qrSize" type="number" min="120" step="10" value="260">
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="btn-qr-generate">Erzeugen</button>
+            <button id="btn-qr-svg" class="secondary">Als SVG speichern</button>
+            <button id="btn-qr-png" class="secondary">Als PNG speichern</button>
+          </div>
+
+          <div id="qrStage" style="margin-top:.75rem;">
+            <div id="qrcodeWrap" title="Klicken: SVG, Alt+Klick: PNG"></div>
+          </div>
+
+          <div class="hint">Tipp: Auf den QR-Code klicken ⇒ <b>SVG</b> speichern. Mit gedrückter <b>Alt</b>-Taste ⇒ <b>PNG</b>.</div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN / INFO -->
+      <div class="card">
+        <h3 style="margin-top:0;">Hinweis zur maximalen Textlänge (Barcode)</h3>
+        <p>Bei <b>CODE128</b> gibt es keinen fest verdrahteten Zeichen-Limit. Die nutzbare Länge hängt ab von
+          <i>verfügbarer Breite</i>, <i>Modulbreite</i> (Balkenbreite) und den <i>Quiet Zones</i>. Je länger der Text, desto breiter wird der Code.</p>
+        <p><b>Faustregel:</b> Pro Zeichen ca. <code>≈ 11 Module</code>.
+          Start/Prüfziffer/Stop benötigen zusammen grob <code>≈ 35 Module</code> zusätzlich.
+          Maximale Zeichen (Schätzwert): <code>(verfügbare Module − 35) / 11</code>.</p>
+        <p><b>CODE128C</b> (nur Ziffern, gerade Anzahl) verdichtet Paare: effektiv etwa <code>≈ 5.5 Module</code> je <i>Ziffer</i>.
+           Damit passt bei gleicher Breite <i>etwa doppelt so viel</i> Zahleninhalt hinein.</p>
+        <p class="muted">Diese Schätzung ist praxisnah, aber nicht exakt. Prüfen Sie bei kritischen Anwendungen per Testdruck &amp; Scanner.</p>
+        <div id="calc" class="ok"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    function sanitizeFilename(name) {
+      return (name || "code").trim().replace(/[/\\?%*:|"<>]/g, "_").slice(0, 120) || "code";
+    }
+    function ensureViewBox(svg) {
+      if (!svg.hasAttribute("viewBox")) {
+        const bb = svg.getBBox();
+        const w = Math.max(1, Math.ceil(bb.width));
+        const h = Math.max(1, Math.ceil(bb.height));
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      }
+    }
+    function downloadBlob(data, mime, filename) {
+      const blob = new Blob([data], { type: mime });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+    function downloadSVG(svg, filename) {
+      ensureViewBox(svg);
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      const xml = new XMLSerializer().serializeToString(svg);
+      downloadBlob(xml, "image/svg+xml;charset=utf-8", filename + ".svg");
+    }
+    function downloadPNGFromSvg(svg, filename, scale = 3) {
+      ensureViewBox(svg);
+      const xml = new XMLSerializer().serializeToString(svg);
+      const svgUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+      const img = new Image();
+      img.onload = () => {
+        const vb = svg.viewBox.baseVal;
+        const w = Math.ceil((vb && vb.width)  ? vb.width  : img.width);
+        const h = Math.ceil((vb && vb.height) ? vb.height : img.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = w * scale;
+        canvas.height = h * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = filename + ".png";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }, "image/png");
+      };
+      img.src = svgUrl;
+    }
+
+    // ---------- Elements: Barcode ----------
+    const $ = (id) => document.getElementById(id);
+    const input = $("payload");
+    const fmt = $("format");
+    const disp = $("displayValue");
+    const width = $("barWidth");
+    const height = $("barHeight");
+    const margin = $("margin");
+    const svg = $("barcode");
+    const stage = $("stage");
+    const btnGen = $("btn-generate");
+    const btnSvg = $("btn-svg");
+    const btnPng = $("btn-png");
+    const status = $("status");
+    const calc = $("calc");
+
+    // ---------- Estimation (Barcode) ----------
+    function estimateMaxChars(containerPx, barPx, marginPx, format) {
+      if (!barPx || barPx <= 0) return {maxChars: 0, availableModules: 0};
+      const quietModules = (marginPx * 2) / barPx;
+      const availableModules = (containerPx / barPx) - quietModules;
+      let perUnit = (format === "CODE128C") ? 5.5 : 11.0;
+      const overhead = 35; // Start + Check + Stop (grob)
+      const maxUnits = Math.max(0, Math.floor((availableModules - overhead) / perUnit));
+      return { maxChars: maxUnits, availableModules };
+    }
+    function updateEstimation() {
+      const containerPx = stage.clientWidth - 2; // grob, minus Rahmen
+      const barPx = parseFloat(width.value);
+      const marginPx = parseFloat(margin.value) || 0;
+      const format = fmt.value;
+      const payload = input.value.trim();
+      const { maxChars } = estimateMaxChars(containerPx, barPx, marginPx, format);
+      const units = (format === "CODE128C") ? "Ziffern" : "Zeichen";
+      const len = (format === "CODE128C") ? (payload.replace(/\D/g,"").length) : payload.length;
+      let msg = `Bei aktueller Breite passen etwa <b>~ ${maxChars} ${units}</b> (Schätzwert).`;
+      if (len > 0) msg += ` Dein Text hat <b>${len} ${units}</b>.`;
+      if (len > maxChars) {
+        calc.className = "warn";
+        msg += " Empfehlung: <ul><li>Modulbreite verringern</li><li>Schriftgröße reduzieren oder ausblenden</li><li>Format <code>CODE128C</code> nutzen (nur Ziffern)</li><li>Mehr Breite bereitstellen</li></ul>";
+      } else {
+        calc.className = "ok";
+        msg += " Das sollte gut passen.";
+      }
+      calc.innerHTML = msg;
+    }
+
+    // ---------- Render: Barcode ----------
+    function renderBarcode() {
+      const v = input.value.trim();
+      svg.replaceChildren();
+      status.innerHTML = "";
+      btnSvg.disabled = btnPng.disabled = !v;
+
+      if (!v) { updateEstimation(); return; }
+
+      if (fmt.value === "CODE128C") {
+        const digits = v.replace(/\D/g, "");
+        if (digits.length !== v.length || digits.length % 2 === 1) {
+          status.innerHTML = '<div class="warn">CODE128C benötigt ausschließlich Ziffern und eine <b>gerade</b> Anzahl.</div>';
+        }
+      }
+
+      JsBarcode(svg, v, {
+        format: fmt.value,
+        displayValue: (disp.value === "true"),
+        width: Math.max(0.2, parseFloat(width.value) || 2.0),
+        height: Math.max(20, parseFloat(height.value) || 160),
+        margin: Math.max(0, parseFloat(margin.value) || 0),
+        fontSize: 14
+      });
+      ensureViewBox(svg);
+      updateEstimation();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      input.value = input.value || "0123456789012345";
+      renderBarcode();
+      initQr(); // also prepare QR
+      renderQr();
+    });
+    [input, fmt, disp, width, height, margin].forEach(el => el.addEventListener("input", () => { renderBarcode(); renderQr(); }));
+    btnGen.addEventListener("click", () => { renderBarcode(); renderQr(); });
+
+    svg.addEventListener("click", (ev) => {
+      const name = sanitizeFilename(input.value || "barcode");
+      if (ev.altKey) { downloadPNGFromSvg(svg, name, 3); }
+      else { downloadSVG(svg, name); }
+    });
+    btnSvg.addEventListener("click", () => downloadSVG(svg, sanitizeFilename(input.value || "barcode")));
+    btnPng.addEventListener("click", () => downloadPNGFromSvg(svg, sanitizeFilename(input.value || "barcode"), 3));
+
+    // ---------- QR Code ----------
+    const qrEC = $("qrEC");
+    const qrSize = $("qrSize");
+    const qrWrap = $("qrcodeWrap");
+    const btnQrGen = $("btn-qr-generate");
+    const btnQrSvg = $("btn-qr-svg");
+    const btnQrPng = $("btn-qr-png");
+
+    let qr;
+
+    function initQr() {
+      qr = new QRCodeStyling({
+        width: parseInt(qrSize.value, 10) || 260,
+        height: parseInt(qrSize.value, 10) || 260,
+        type: "svg",
+        data: input.value.trim() || "",
+        qrOptions: { errorCorrectionLevel: qrEC.value || "M" },
+        dotsOptions: { type: "square" },
+        backgroundOptions: { color: "#FFFFFF" }
+      });
+      qr.append(qrWrap);
+    }
+
+    function renderQr() {
+      if (!qr) return;
+      qr.update({
+        width: parseInt(qrSize.value, 10) || 260,
+        height: parseInt(qrSize.value, 10) || 260,
+        data: input.value.trim() || "",
+        qrOptions: { errorCorrectionLevel: qrEC.value || "M" }
+      });
+    }
+
+    btnQrGen.addEventListener("click", renderQr);
+    [qrEC, qrSize].forEach(el => el.addEventListener("input", renderQr));
+
+    // Download using library's built-in helper
+    function qrDownloadSVG() {
+      const name = sanitizeFilename(input.value || "qrcode");
+      qr.download({ name, extension: "svg" });
+    }
+    function qrDownloadPNG() {
+      const name = sanitizeFilename(input.value || "qrcode");
+      qr.download({ name, extension: "png" });
+    }
+
+    btnQrSvg.addEventListener("click", qrDownloadSVG);
+    btnQrPng.addEventListener("click", qrDownloadPNG);
+
+    // Click on QR area: SVG; Alt-click: PNG
+    qrWrap.addEventListener("click", (ev) => {
+      if (ev.altKey) qrDownloadPNG();
+      else qrDownloadSVG();
+    });
+  </script>
+</body>
+</html>
